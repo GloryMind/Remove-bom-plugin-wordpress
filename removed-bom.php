@@ -10,7 +10,10 @@ Author: Jerry
 */
 
 namespace RemovedBom;
-
+function isAdminAccess() {
+	if ( !is_callable('\current_user_can') ) { return false; }
+	return \current_user_can('activate_plugins');
+}
 function AddLog( $text ) {
 	$f= fopen(__DIR__."/log-mini.txt", "a+");
 	fwrite($f, $text."\r\n");
@@ -303,38 +306,40 @@ class FilterFiles {
 	}
 }
 
-if ( is_admin() ) {
-	if ( !$rmExtList = get_option("rm-bom-ext-list") ) {
-		update_option("rm-bom-ext-list", "css,js,php");
+add_action('plugins_loaded', function() {
+	if ( is_admin() && isAdminAccess() ) {
+		if ( !$rmExtList = get_option("rm-bom-ext-list") ) {
+			update_option("rm-bom-ext-list", "css,js,php");
+		}
 	}
-}
-if ( is_admin() && isset($_REQUEST['rm-bom-ajax']) ) {
-	$filter = new FilterFiles( get_option("rm-bom-ext-list") );
-	$fpc = new FilesProcessControl(ABSPATH, ["file"=>$filter]);
-	$fpc->AjProcess();
+	if ( is_admin() && isset($_REQUEST['rm-bom-ajax']) ) {
+		$filter = new FilterFiles( get_option("rm-bom-ext-list") );
+		$fpc = new FilesProcessControl(ABSPATH, ["file"=>$filter]);
+		$fpc->AjProcess();
 
-	switch( $_REQUEST['rm-bom-ajax'] ) {
-		case 'get-logs':
-			$allI = @(int)$_REQUEST['all-i'];
-			$filterI = @(int)$_REQUEST['filter-i'];
+		switch( $_REQUEST['rm-bom-ajax'] ) {
+			case 'get-logs':
+				$allI = @(int)$_REQUEST['all-i'];
+				$filterI = @(int)$_REQUEST['filter-i'];
 
-			echo json_encode([
-				"is_process" => $fpc->IsProcess() ,
-				"all" => $fpc->GetLogs()->GetSection("log-process")->Get( $allI ) ,
-				"filter" => $fpc->GetLogs()->GetSection("log-filter-process")->Get( $filterI ) ,
-			]);
+				echo json_encode([
+					"is_process" => $fpc->IsProcess() ,
+					"all" => $fpc->GetLogs()->GetSection("log-process")->Get( $allI ) ,
+					"filter" => $fpc->GetLogs()->GetSection("log-filter-process")->Get( $filterI ) ,
+				]);
 
-			exit;
-		
-		case 'start-process':
-			$fpc->StartProcess();
-			exit;
-		
-		case 'change-ext-list':
-			update_option("rm-bom-ext-list", @$_REQUEST['ext-list']);
-			exit;
+				exit;
+			
+			case 'start-process':
+				$fpc->StartProcess();
+				exit;
+			
+			case 'change-ext-list':
+				update_option("rm-bom-ext-list", @$_REQUEST['ext-list']);
+				exit;
+		}
 	}
-}
+});
 
 function drawMenu__Main() {
 ?>
@@ -403,16 +408,14 @@ function drawMenu__Main() {
 		var filterI = 0;
 		var timeSleep = 100;
 		var scrollTop_logsAll = new _Scroll('.logs-all');
-		var scrollTop_logsFilter = new _Scroll('.logs-all');
+		var scrollTop_logsFilter = new _Scroll('.logs-replace');
 		var process = function() {			
 			$.get("?rm-bom-ajax=get-logs&all-i="+allI+"&filter-i="+filterI, function(data) {
 				if ( !( data && data.all && data.filter ) ) {
 					timeSleep = 700;
 					return;
 				}
-				if ( !data.is_process ) {
-					$('.btn-rm-bom').prop('disabled', false);
-				}
+				$('.btn-rm-bom').prop('disabled', data.is_process);
 				if ( allI === 0 && data.all.length > 0 ) { $('.logs-all').fadeIn(); }
 				if ( filterI === 0 && data.filter.length > 0 ) { $('.logs-replace').fadeIn(); }
 				allI += data.all.length;
