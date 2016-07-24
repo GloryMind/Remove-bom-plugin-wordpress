@@ -10,6 +10,7 @@ Author: Jerry
 */
 
 namespace RemovedBom;
+
 function isAdminAccess() {
 	if ( !is_callable('\current_user_can') ) { return false; }
 	return \current_user_can('activate_plugins');
@@ -312,7 +313,7 @@ add_action('plugins_loaded', function() {
 			update_option("rm-bom-ext-list", "css,js,php");
 		}
 	}
-	if ( is_admin() && isset($_REQUEST['rm-bom-ajax']) ) {
+	if ( is_admin() && isAdminAccess() && isset($_REQUEST['rm-bom-ajax']) ) {
 		$filter = new FilterFiles( get_option("rm-bom-ext-list") );
 		$fpc = new FilesProcessControl(ABSPATH, ["file"=>$filter]);
 		$fpc->AjProcess();
